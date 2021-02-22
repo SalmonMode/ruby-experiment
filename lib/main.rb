@@ -14,46 +14,50 @@ password = ARGV[1]
 # Launch driver session
 browser = Watir::Browser.new :chrome, {timeout: 120, url: "http://localhost:4444/wd/hub"}
 
-# Login
-login_page = CryptpadLoginPage.new(browser)
-login_page.open
-login_page.wait_for_loaded
-login_page.login(username, password)
+begin
+  # Login
+  login_page = CryptpadLoginPage.new(browser)
+  login_page.open
+  login_page.wait_for_loaded
+  login_page.login(username, password)
 
-# Wait for landing page to load (otherwise the session may not be logged in and it wouldn't be safe to move forward)
-landing_page = CryptpadDrivePage.new(browser)
-landing_page.wait_for_loaded
+  # Wait for landing page to load (otherwise the session may not be logged in and it wouldn't be safe to move forward)
+  landing_page = CryptpadDrivePage.new(browser)
+  landing_page.wait_for_loaded
 
-# Create a new kanban board
-new_board_page = CryptpadNewKanbanBoardPage.new(browser)
-new_board_page.open
-new_board_page.wait_for_loaded
-new_board_page.create
+  # Create a new kanban board
+  new_board_page = CryptpadNewKanbanBoardPage.new(browser)
+  new_board_page.open
+  new_board_page.wait_for_loaded
+  new_board_page.create
+  begin
+    # Wait for board page to load
+    page = CryptpadKanbanPage.new(browser)
+    page.wait_for_loaded
 
-# Wait for board page to load
-page = CryptpadKanbanPage.new(browser)
-page.wait_for_loaded
+    # Add several cards
+    for i in (1..50) do
+      page.board.columns[0].add_card_to_top "something #{i}"
+    end
 
-# Add several cards
-for i in (1..50) do
-  page.board.columns[0].add_card_to_top "something #{i}"
+    # Cache info
+    page.cache_column_and_card_info
+
+    # Move the cards around
+    for _ in (1..100) do
+      page.randomly_move_card
+    end
+  ensure
+
+    # Delete the board
+    page.trash_board
+
+    # Destroy it
+    drive_page = CryptpadDrivePage.new(browser)
+    drive_page.open
+    drive_page.wait_for_loaded
+    drive_page.destroy_trash
+  end
+ensure
+  browser.quit
 end
-
-# Cache info
-page.cache_column_and_card_info
-
-# Move the cards around
-for _ in (1..100) do
-  page.randomly_move_card
-end
-
-# Delete the board
-page.trash_board
-
-# Destroy it
-drive_page = CryptpadDrivePage.new(browser)
-drive_page.open
-drive_page.wait_for_loaded
-drive_page.destroy_trash
-
-browser.quit
